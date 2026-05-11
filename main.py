@@ -2,7 +2,7 @@ import os
 import asyncio
 import random
 
-from telegram import Update
+from telegram import Update, InputMediaPhoto
 from telegram.ext import (
     ApplicationBuilder,
     MessageHandler,
@@ -20,6 +20,39 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_message = update.message.text
+    message_lower = user_message.lower()
+
+    menu_words = [
+        "menu", "services", "offers", "options",
+        "prices", "price", "cost", "vip"
+    ]
+
+    if any(word in message_lower for word in menu_words):
+
+        await asyncio.sleep(random.randint(4, 8))
+
+        await update.message.reply_media_group([
+            InputMediaPhoto(open("menu1.jpg", "rb"), caption="Here’s Kc 🦋’s current menu 💋"),
+            InputMediaPhoto(open("menu2.jpg", "rb")),
+            InputMediaPhoto(open("menu3.jpg", "rb")),
+        ])
+
+        return
+
+    handoff_words = [
+        "buy", "payment", "pay", "cashapp", "paypal",
+        "venmo", "refund", "available", "order", "purchase"
+    ]
+
+    if any(word in message_lower for word in handoff_words):
+
+        await asyncio.sleep(random.randint(4, 8))
+
+        await update.message.reply_text(
+            "Kc 🦋 can help you with that directly. 💋"
+        )
+
+        return
 
     try:
 
@@ -29,9 +62,15 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 {
                     "role": "system",
                     "content": (
-                        "You are Ms_McKinsey’s Telegram assistant. "
-                        "Be playful, warm, flirty, short, natural, and human-like. "
-                        "Never sound robotic or repetitive."
+                        "You are Kc 🦋’s Telegram assistant. "
+                        "Speak in a playful, warm, feminine, flirty, human-like way. "
+                        "Keep responses short and natural. "
+                        "You may recommend VIP access, private content, custom requests, "
+                        "priority chat, and bundle deals when relevant. "
+                        "Do not offer video chat. "
+                        "Do not negotiate prices or accept payments. "
+                        "If users ask about payments, purchases, or availability, "
+                        "tell them Kc 🦋 can help them directly."
                     )
                 },
                 {
@@ -44,7 +83,6 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         ai_reply = completion.choices[0].message.content
 
-        # Simulated human typing delay
         await asyncio.sleep(random.randint(6, 14))
 
         await update.message.reply_text(ai_reply)
