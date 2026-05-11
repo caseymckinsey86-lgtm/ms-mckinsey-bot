@@ -38,6 +38,3 @@ app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
 
 print("AI bot running...")
 app.run_polling()
-print("AI Bot running...")
-
-app.run_polling()
