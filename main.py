@@ -100,7 +100,30 @@ async def resetme(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Type anything or press /start to test again."
     )
 
-# ---------------- WELCOME ---------------- #
+# ---------------- TEST ALERT ---------------- #
+
+async def testalert(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    try:
+
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text="✅ Test alert worked. Kc 🦋 can receive bot alerts."
+        )
+
+        await update.message.reply_text(
+            "Test alert sent ✅"
+        )
+
+    except Exception as e:
+
+        print("TEST ALERT ERROR:", e)
+
+        await update.message.reply_text(
+            f"Alert failed ❌ Error: {e}"
+        )
+
+# ---------------- GROUP WELCOME ---------------- #
 
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -189,7 +212,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    # -------- BUYER ALERT / HUMAN HANDOFF -------- #
+    # -------- BUYER ALERTS -------- #
 
     handoff_words = [
         "buy",
@@ -227,7 +250,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         except Exception as e:
 
-            print(e)
+            print("BUYER ALERT ERROR:", e)
 
         return
 
@@ -279,6 +302,7 @@ app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("resetme", resetme))
+app.add_handler(CommandHandler("testalert", testalert))
 
 app.add_handler(
     MessageHandler(
