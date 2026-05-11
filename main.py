@@ -193,8 +193,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "options",
         "prices",
         "price",
-        "cost",
-        "vip"
+        "cost"
     ]
 
     if any(word in message_lower for word in menu_words):
@@ -237,13 +236,21 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         try:
 
+            username = update.message.from_user.username
+
+            if username:
+                username_text = f"@{username}"
+            else:
+                username_text = "No username"
+
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
 
                 text=(
                     f"🔥 Potential Buyer Alert\n\n"
                     f"User: {update.message.from_user.first_name}\n"
-                    f"Username: @{update.message.from_user.username}\n\n"
+                    f"Username: {username_text}\n"
+                    f"User ID: {user_id}\n\n"
                     f"Message:\n{user_message}"
                 )
             )
