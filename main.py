@@ -1,6 +1,4 @@
 import os
-import asyncio
-import random
 
 from telegram import Update, InputMediaPhoto
 from telegram.ext import (
@@ -22,14 +20,19 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     message_lower = user_message.lower()
 
+    # MENU REQUESTS
     menu_words = [
-        "menu", "services", "offers", "options",
-        "prices", "price", "cost", "vip"
+        "menu",
+        "services",
+        "offers",
+        "options",
+        "prices",
+        "price",
+        "cost",
+        "vip"
     ]
 
     if any(word in message_lower for word in menu_words):
-
-        await asyncio.sleep(random.randint(4, 8))
 
         await update.message.reply_media_group([
             InputMediaPhoto(open("menu1.jpg", "rb"), caption="Here’s Kc 🦋’s current menu 💋"),
@@ -39,14 +42,21 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
+    # HUMAN HANDOFF
     handoff_words = [
-        "buy", "payment", "pay", "cashapp", "paypal",
-        "venmo", "refund", "available", "order", "purchase"
+        "buy",
+        "payment",
+        "pay",
+        "cashapp",
+        "paypal",
+        "venmo",
+        "refund",
+        "available",
+        "order",
+        "purchase"
     ]
 
     if any(word in message_lower for word in handoff_words):
-
-        await asyncio.sleep(random.randint(4, 8))
 
         await update.message.reply_text(
             "Kc 🦋 can help you with that directly. 💋"
@@ -82,8 +92,6 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         ai_reply = completion.choices[0].message.content
-
-        await asyncio.sleep(random.randint(6, 14))
 
         await update.message.reply_text(ai_reply)
 
