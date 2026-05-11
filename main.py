@@ -1,34 +1,44 @@
 from telegram.ext import ApplicationBuilder, MessageHandler, filters
 from telegram import Update
 from telegram.ext import ContextTypes
+from openai import OpenAI
 import os
 
-TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     user_message = update.message.text
 
-    async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text.lower()
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a flirty, playful, emotionally engaging woman "
+                    "talking casually on Telegram. "
+                    "Keep responses short, natural, and human-like."
+                )
+            },
+            {
+                "role": "user",
+                "content": user_message
+            }
+        ]
+    )
 
-    if "hello" in user_message or "hey" in user_message:
-        response = "Hey 😘 I’m glad you found me. Tell me a little about yourself..."
+    ai_reply = response.choices[0].message.content
 
-    elif "how are you" in user_message:
-        response = "Better now that you're here 😏"
+    await update.message.reply_text(ai_reply)
 
-    elif "looking" in user_message:
-        response = "Maybe I am... what kind of connection are you hoping for? 💋"
-
-    else:
-        response = "Mmm tell me more 😘"
-
-    await update.message.reply_text(response)
-
-app = ApplicationBuilder().token(TOKEN).build()
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(MessageHandler(filters.TEXT, reply))
 
-print("Bot running...")
+print("AI Bot running...")
 
 app.run_polling()
