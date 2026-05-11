@@ -31,9 +31,10 @@ CREATE TABLE IF NOT EXISTS users (
 
 conn.commit()
 
-# ---------------- FUNCTIONS ---------------- #
+# ---------------- USER FUNCTIONS ---------------- #
 
 def is_verified(user_id):
+
     cursor.execute(
         "SELECT verified FROM users WHERE user_id = ?",
         (user_id,)
@@ -45,9 +46,12 @@ def is_verified(user_id):
 
 
 def verify_user(user_id):
+
     cursor.execute("""
-    INSERT OR REPLACE INTO users (user_id, verified)
+    INSERT INTO users (user_id, verified)
     VALUES (?, 1)
+    ON CONFLICT(user_id)
+    DO UPDATE SET verified = 1
     """, (user_id,))
 
     conn.commit()
@@ -85,28 +89,24 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not is_verified(user_id):
 
-        if message_lower in [
-            "yes",
-            "y",
-            "18+",
-            "yes i am",
-            "i am 18"
-        ]:
+        if (
+            "yes" in message_lower
+            or "18" in message_lower
+        ):
 
             verify_user(user_id)
 
             await update.message.reply_text(
                 "Thank you 💋 You’re verified.\n\n"
-                "You can ask for the menu or just say hey."
+                "You can now ask for the menu or chat with Kc 🦋"
             )
 
             return
 
-        elif message_lower in [
-            "no",
-            "n",
-            "under 18"
-        ]:
+        elif (
+            "no" in message_lower
+            or "under" in message_lower
+        ):
 
             await update.message.reply_text(
                 "Sorry, this space is for adults only."
