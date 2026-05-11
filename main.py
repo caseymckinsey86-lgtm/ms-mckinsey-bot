@@ -9,8 +9,8 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
 
     await update.message.reply_text(
-        f"Hey 😘 You said: {user_message}"
-    )
+    "Hey 😘 I’m glad you found me. Tell me a little about yourself..."
+)
 
 app = ApplicationBuilder().token(TOKEN).build()
 
