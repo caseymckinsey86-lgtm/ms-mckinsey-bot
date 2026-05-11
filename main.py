@@ -14,6 +14,7 @@ from openai import OpenAI
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -34,6 +35,7 @@ conn.commit()
 # ---------------- USER FUNCTIONS ---------------- #
 
 def is_verified(user_id):
+
     cursor.execute(
         "SELECT verified FROM users WHERE user_id = ?",
         (user_id,)
@@ -45,6 +47,7 @@ def is_verified(user_id):
 
 
 def verify_user(user_id):
+
     cursor.execute("""
     INSERT INTO users (user_id, verified)
     VALUES (?, 1)
@@ -56,6 +59,7 @@ def verify_user(user_id):
 
 
 def reset_user(user_id):
+
     cursor.execute(
         "DELETE FROM users WHERE user_id = ?",
         (user_id,)
@@ -66,13 +70,16 @@ def reset_user(user_id):
 # ---------------- START ---------------- #
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     user_id = update.message.from_user.id
 
     if is_verified(user_id):
+
         await update.message.reply_text(
             "Welcome back 💋\n\n"
-            "You’re already verified. You can type 'menu' anytime."
+            "You’re already verified. Type 'menu' anytime."
         )
+
         return
 
     await update.message.reply_text(
@@ -80,22 +87,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Reply YES to continue or NO to leave."
     )
 
-# ---------------- RESET TEST COMMAND ---------------- #
+# ---------------- RESET ---------------- #
 
 async def resetme(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     user_id = update.message.from_user.id
 
     reset_user(user_id)
 
     await update.message.reply_text(
-        "Your verification was reset.\n\n"
-        "Type anything or press /start to test age verification again."
+        "Verification reset.\n\n"
+        "Type anything or press /start to test again."
     )
 
-# ---------------- GROUP WELCOME ---------------- #
+# ---------------- WELCOME ---------------- #
 
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     for member in update.message.new_chat_members:
+
         await update.message.reply_text(
             f"Welcome {member.first_name} 😘\n\n"
             "Before continuing, please confirm you are 18+.\n"
@@ -105,11 +115,12 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- MAIN REPLY ---------------- #
 
 async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     user_message = update.message.text
     message_lower = user_message.lower()
     user_id = update.message.from_user.id
 
-    # -------- FORCE AGE VERIFICATION FIRST -------- #
+    # -------- AGE VERIFICATION -------- #
 
     if not is_verified(user_id):
 
@@ -119,6 +130,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             or "i am" in message_lower
             or "im 18" in message_lower
         ):
+
             verify_user(user_id)
 
             await update.message.reply_text(
@@ -133,6 +145,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             or "under" in message_lower
             or "minor" in message_lower
         ):
+
             await update.message.reply_text(
                 "Sorry, this space is for adults only."
             )
@@ -140,6 +153,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         else:
+
             await update.message.reply_text(
                 "Before continuing, please confirm you are 18+.\n\n"
                 "Reply YES to continue or NO to leave."
@@ -161,18 +175,21 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     if any(word in message_lower for word in menu_words):
+
         await update.message.reply_media_group([
             InputMediaPhoto(
                 open("menu1.jpg", "rb"),
                 caption="Here’s Kc 🦋’s current menu 💋"
             ),
+
             InputMediaPhoto(open("menu2.jpg", "rb")),
+
             InputMediaPhoto(open("menu3.jpg", "rb")),
         ])
 
         return
 
-    # -------- HUMAN HANDOFF -------- #
+    # -------- BUYER ALERT / HUMAN HANDOFF -------- #
 
     handoff_words = [
         "buy",
@@ -185,36 +202,62 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "available",
         "order",
         "purchase",
-        "custom"
+        "custom",
+        "vip"
     ]
 
     if any(word in message_lower for word in handoff_words):
+
         await update.message.reply_text(
             "Kc 🦋 can help you with that directly 💋"
         )
+
+        try:
+
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+
+                text=(
+                    f"🔥 Potential Buyer Alert\n\n"
+                    f"User: {update.message.from_user.first_name}\n"
+                    f"Username: @{update.message.from_user.username}\n\n"
+                    f"Message:\n{user_message}"
+                )
+            )
+
+        except Exception as e:
+
+            print(e)
 
         return
 
     # -------- AI CHAT -------- #
 
     try:
+
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
+
             messages=[
                 {
                     "role": "system",
+
                     "content": (
                         "You are Kc 🦋’s Telegram assistant. "
-                        "Reply short, warm, playful, feminine, and natural. "
-                        "No video chat. No payments. "
-                        "If someone sounds serious about buying, tell them Kc 🦋 can help directly."
+                        "Reply short, warm, playful, feminine, "
+                        "natural, and human-like. "
+                        "No video chat. "
+                        "No payments. "
+                        "Send serious buyers to Kc 🦋."
                     )
                 },
+
                 {
                     "role": "user",
                     "content": user_message
                 }
             ],
+
             max_tokens=50
         )
 
@@ -223,6 +266,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(ai_reply)
 
     except Exception as e:
+
         print(e)
 
         await update.message.reply_text(
