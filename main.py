@@ -34,7 +34,6 @@ conn.commit()
 # ---------------- USER FUNCTIONS ---------------- #
 
 def is_verified(user_id):
-
     cursor.execute(
         "SELECT verified FROM users WHERE user_id = ?",
         (user_id,)
@@ -46,7 +45,6 @@ def is_verified(user_id):
 
 
 def verify_user(user_id):
-
     cursor.execute("""
     INSERT INTO users (user_id, verified)
     VALUES (?, 1)
@@ -56,44 +54,71 @@ def verify_user(user_id):
 
     conn.commit()
 
+
+def reset_user(user_id):
+    cursor.execute(
+        "DELETE FROM users WHERE user_id = ?",
+        (user_id,)
+    )
+
+    conn.commit()
+
 # ---------------- START ---------------- #
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+
+    if is_verified(user_id):
+        await update.message.reply_text(
+            "Welcome back 💋\n\n"
+            "You’re already verified. You can type 'menu' anytime."
+        )
+        return
 
     await update.message.reply_text(
         "Before we continue, please confirm you are 18+.\n\n"
         "Reply YES to continue or NO to leave."
     )
 
-# ---------------- WELCOME ---------------- #
+# ---------------- RESET TEST COMMAND ---------------- #
+
+async def resetme(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+
+    reset_user(user_id)
+
+    await update.message.reply_text(
+        "Your verification was reset.\n\n"
+        "Type anything or press /start to test age verification again."
+    )
+
+# ---------------- GROUP WELCOME ---------------- #
 
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     for member in update.message.new_chat_members:
-
         await update.message.reply_text(
             f"Welcome {member.first_name} 😘\n\n"
             "Before continuing, please confirm you are 18+.\n"
             "Reply YES to continue or NO to leave."
         )
 
-# ---------------- REPLY ---------------- #
+# ---------------- MAIN REPLY ---------------- #
 
 async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     user_message = update.message.text
     message_lower = user_message.lower()
     user_id = update.message.from_user.id
 
-    # -------- AGE VERIFICATION -------- #
+    # -------- FORCE AGE VERIFICATION FIRST -------- #
 
     if not is_verified(user_id):
 
         if (
             "yes" in message_lower
             or "18" in message_lower
+            or "i am" in message_lower
+            or "im 18" in message_lower
         ):
-
             verify_user(user_id)
 
             await update.message.reply_text(
@@ -106,8 +131,8 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif (
             "no" in message_lower
             or "under" in message_lower
+            or "minor" in message_lower
         ):
-
             await update.message.reply_text(
                 "Sorry, this space is for adults only."
             )
@@ -115,10 +140,9 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         else:
-
             await update.message.reply_text(
-                "Please confirm you are 18+ first.\n\n"
-                "Reply YES or NO."
+                "Before continuing, please confirm you are 18+.\n\n"
+                "Reply YES to continue or NO to leave."
             )
 
             return
@@ -137,20 +161,13 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     if any(word in message_lower for word in menu_words):
-
         await update.message.reply_media_group([
             InputMediaPhoto(
                 open("menu1.jpg", "rb"),
                 caption="Here’s Kc 🦋’s current menu 💋"
             ),
-
-            InputMediaPhoto(
-                open("menu2.jpg", "rb")
-            ),
-
-            InputMediaPhoto(
-                open("menu3.jpg", "rb")
-            ),
+            InputMediaPhoto(open("menu2.jpg", "rb")),
+            InputMediaPhoto(open("menu3.jpg", "rb")),
         ])
 
         return
@@ -167,11 +184,11 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "refund",
         "available",
         "order",
-        "purchase"
+        "purchase",
+        "custom"
     ]
 
     if any(word in message_lower for word in handoff_words):
-
         await update.message.reply_text(
             "Kc 🦋 can help you with that directly 💋"
         )
@@ -181,30 +198,23 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # -------- AI CHAT -------- #
 
     try:
-
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
-
             messages=[
                 {
                     "role": "system",
-
                     "content": (
                         "You are Kc 🦋’s Telegram assistant. "
-                        "Reply short, warm, playful, feminine, "
-                        "natural, and human-like. "
-                        "No video chat. "
-                        "No payments. "
-                        "Send serious buyers to Kc 🦋."
+                        "Reply short, warm, playful, feminine, and natural. "
+                        "No video chat. No payments. "
+                        "If someone sounds serious about buying, tell them Kc 🦋 can help directly."
                     )
                 },
-
                 {
                     "role": "user",
                     "content": user_message
                 }
             ],
-
             max_tokens=50
         )
 
@@ -213,7 +223,6 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(ai_reply)
 
     except Exception as e:
-
         print(e)
 
         await update.message.reply_text(
@@ -224,9 +233,8 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-app.add_handler(
-    CommandHandler("start", start)
-)
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("resetme", resetme))
 
 app.add_handler(
     MessageHandler(
