@@ -122,7 +122,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Reply YES to continue or NO to leave."
     )
 
-# ---------------- CALLBACK BUTTONS ---------------- #
+# ---------------- RESET ---------------- #
+
+async def resetme(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user_id = update.message.from_user.id
+
+    reset_user(user_id)
+
+    await update.message.reply_text(
+        "Verification reset.\n\n"
+        "Type anything or press /start to test again."
+    )
+
+# ---------------- BUTTON HANDLER ---------------- #
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
