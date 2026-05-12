@@ -33,13 +33,14 @@ cursor = conn.cursor()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY,
-    verified INTEGER DEFAULT 0
+    verified INTEGER DEFAULT 0,
+    takeover INTEGER DEFAULT 0
 )
 """)
 
 conn.commit()
 
-# Temporary admin reply state
+# Reply mode memory
 admin_reply_targets = {}
 
 # ---------------- USER FUNCTIONS ---------------- #
@@ -59,8 +60,9 @@ def is_verified(user_id):
 def verify_user(user_id):
 
     cursor.execute("""
-    INSERT INTO users (user_id, verified)
-    VALUES (?, 1)
+    INSERT INTO users (user_id, verified, takeover)
+    VALUES (?, 1, 0)
+
     ON CONFLICT(user_id)
     DO UPDATE SET verified = 1
     """, (user_id,))
@@ -76,6 +78,29 @@ def reset_user(user_id):
     )
 
     conn.commit()
+
+
+def set_takeover(user_id, status):
+
+    cursor.execute("""
+    UPDATE users
+    SET takeover = ?
+    WHERE user_id = ?
+    """, (status, user_id))
+
+    conn.commit()
+
+
+def is_takeover(user_id):
+
+    cursor.execute(
+        "SELECT takeover FROM users WHERE user_id = ?",
+        (user_id,)
+    )
+
+    result = cursor.fetchone()
+
+    return result and result[0] == 1
 
 # ---------------- START ---------------- #
 
@@ -97,89 +122,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Reply YES to continue or NO to leave."
     )
 
-# ---------------- RESET ---------------- #
+# ---------------- CALLBACK BUTTONS ---------------- #
 
-async def resetme(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    user_id = update.message.from_user.id
-
-    reset_user(user_id)
-
-    await update.message.reply_text(
-        "Verification reset.\n\n"
-        "Type anything or press /start to test again."
-    )
-
-# ---------------- TEST ALERT ---------------- #
-
-async def testalert(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    try:
-
-        await context.bot.send_message(
-            chat_id=ADMIN_CHAT_ID,
-            text="✅ Test alert worked. Kc 🦋 can receive bot alerts."
-        )
-
-        await update.message.reply_text(
-            "Test alert sent ✅"
-        )
-
-    except Exception as e:
-
-        print("TEST ALERT ERROR:", e)
-
-        await update.message.reply_text(
-            f"Alert failed ❌ Error: {e}"
-        )
-
-# ---------------- ADMIN REPLY COMMAND ---------------- #
-
-async def admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    admin_id = str(update.message.from_user.id)
-
-    if admin_id != str(ADMIN_CHAT_ID):
-
-        await update.message.reply_text(
-            "You are not authorized to use this command."
-        )
-
-        return
-
-    if len(context.args) < 2:
-
-        await update.message.reply_text(
-            "Use:\n\n/reply USER_ID your message"
-        )
-
-        return
-
-    target_user_id = int(context.args[0])
-    message_text = " ".join(context.args[1:])
-
-    try:
-
-        await context.bot.send_message(
-            chat_id=target_user_id,
-            text=message_text
-        )
-
-        await update.message.reply_text(
-            f"Message sent to {target_user_id} ✅"
-        )
-
-    except Exception as e:
-
-        print("ADMIN REPLY ERROR:", e)
-
-        await update.message.reply_text(
-            f"Reply failed ❌\n\n{e}"
-        )
-
-# ---------------- REPLY BUTTON HANDLER ---------------- #
-
-async def reply_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
     await query.answer()
@@ -189,34 +134,48 @@ async def reply_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if admin_id != str(ADMIN_CHAT_ID):
 
         await query.message.reply_text(
-            "You are not authorized to use this button."
+            "Not authorized."
         )
 
         return
 
     data = query.data
 
-    if data.startswith("reply_to:"):
+    # TAKEOVER
+
+    if data.startswith("takeover:"):
+
+        target_user_id = int(data.split(":")[1])
+
+        set_takeover(target_user_id, 1)
+
+        await query.message.reply_text(
+            f"💬 Takeover enabled for {target_user_id}"
+        )
+
+    # RELEASE
+
+    elif data.startswith("release:"):
+
+        target_user_id = int(data.split(":")[1])
+
+        set_takeover(target_user_id, 0)
+
+        await query.message.reply_text(
+            f"✅ AI restored for {target_user_id}"
+        )
+
+    # REPLY MODE
+
+    elif data.startswith("reply:"):
 
         target_user_id = int(data.split(":")[1])
 
         admin_reply_targets[admin_id] = target_user_id
 
         await query.message.reply_text(
-            f"Reply mode ON ✅\n\n"
-            f"Type your next message and I’ll send it to user {target_user_id}."
-        )
-
-# ---------------- GROUP WELCOME ---------------- #
-
-async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    for member in update.message.new_chat_members:
-
-        await update.message.reply_text(
-            f"Welcome {member.first_name} 😘\n\n"
-            "Before continuing, please confirm you are 18+.\n"
-            "Reply YES to continue or NO to leave."
+            f"✍️ Reply mode ON\n\n"
+            f"Send your next message to reply to {target_user_id}."
         )
 
 # ---------------- MAIN REPLY ---------------- #
@@ -228,34 +187,81 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     sender_id = str(update.message.from_user.id)
 
-    # -------- ADMIN REPLY MODE -------- #
+    # ---------------- ADMIN REPLY MODE ---------------- #
 
-    if sender_id == str(ADMIN_CHAT_ID) and sender_id in admin_reply_targets:
+    if sender_id == str(ADMIN_CHAT_ID):
 
-        target_user_id = admin_reply_targets.pop(sender_id)
+        if sender_id in admin_reply_targets:
+
+            target_user_id = admin_reply_targets.pop(sender_id)
+
+            try:
+
+                await context.bot.send_message(
+                    chat_id=target_user_id,
+                    text=user_message
+                )
+
+                await update.message.reply_text(
+                    "Reply sent ✅"
+                )
+
+            except Exception as e:
+
+                await update.message.reply_text(
+                    f"Reply failed ❌\n\n{e}"
+                )
+
+            return
+
+    # ---------------- TAKEOVER MODE ---------------- #
+
+    if is_takeover(user_id):
 
         try:
 
-            await context.bot.send_message(
-                chat_id=target_user_id,
-                text=user_message
-            )
+            username = update.message.from_user.username
 
-            await update.message.reply_text(
-                f"Reply sent to {target_user_id} ✅"
+            if username:
+                username_text = f"@{username}"
+            else:
+                username_text = "No username"
+
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "✍️ Reply",
+                        callback_data=f"reply:{user_id}"
+                    ),
+
+                    InlineKeyboardButton(
+                        "✅ Release",
+                        callback_data=f"release:{user_id}"
+                    )
+                ]
+            ])
+
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+
+                text=(
+                    f"📩 User Message During Takeover\n\n"
+                    f"User: {update.message.from_user.first_name}\n"
+                    f"Username: {username_text}\n"
+                    f"User ID: {user_id}\n\n"
+                    f"Message:\n{user_message}"
+                ),
+
+                reply_markup=keyboard
             )
 
         except Exception as e:
 
-            print("ADMIN BUTTON REPLY ERROR:", e)
-
-            await update.message.reply_text(
-                f"Reply failed ❌\n\n{e}"
-            )
+            print("TAKEOVER FORWARD ERROR:", e)
 
         return
 
-    # -------- AGE VERIFICATION -------- #
+    # ---------------- AGE VERIFICATION ---------------- #
 
     if not is_verified(user_id):
 
@@ -296,7 +302,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             return
 
-    # -------- MENU -------- #
+    # ---------------- MENU ---------------- #
 
     menu_words = [
         "menu",
@@ -323,7 +329,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    # -------- BUYER ALERTS -------- #
+    # ---------------- BUYER ALERT ---------------- #
 
     handoff_words = [
         "buy",
@@ -358,8 +364,19 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton(
-                        "💬 Reply to User",
-                        callback_data=f"reply_to:{user_id}"
+                        "💬 Take Over",
+                        callback_data=f"takeover:{user_id}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "✍️ Reply",
+                        callback_data=f"reply:{user_id}"
+                    ),
+
+                    InlineKeyboardButton(
+                        "✅ Release",
+                        callback_data=f"release:{user_id}"
                     )
                 ]
             ])
@@ -384,7 +401,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    # -------- AI CHAT -------- #
+    # ---------------- AI CHAT ---------------- #
 
     try:
 
@@ -423,7 +440,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(e)
 
         await update.message.reply_text(
-            "Oops 😅 my chat brain glitched for a second. Try me again."
+            "Oops 😅 my chat brain glitched for a second."
         )
 
 # ---------------- APP ---------------- #
@@ -432,18 +449,9 @@ app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("resetme", resetme))
-app.add_handler(CommandHandler("testalert", testalert))
-app.add_handler(CommandHandler("reply", admin_reply))
 
 app.add_handler(
-    CallbackQueryHandler(reply_button)
-)
-
-app.add_handler(
-    MessageHandler(
-        filters.StatusUpdate.NEW_CHAT_MEMBERS,
-        welcome
-    )
+    CallbackQueryHandler(button_handler)
 )
 
 app.add_handler(
