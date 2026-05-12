@@ -1,11 +1,18 @@
 import os
 import sqlite3
 
-from telegram import Update, InputMediaPhoto
+from telegram import (
+    Update,
+    InputMediaPhoto,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
+
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters
 )
@@ -31,6 +38,9 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 
 conn.commit()
+
+# Temporary admin reply state
+admin_reply_targets = {}
 
 # ---------------- USER FUNCTIONS ---------------- #
 
@@ -123,7 +133,7 @@ async def testalert(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Alert failed ❌ Error: {e}"
         )
 
-# ---------------- ADMIN REPLY ---------------- #
+# ---------------- ADMIN REPLY COMMAND ---------------- #
 
 async def admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -145,7 +155,7 @@ async def admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    target_user_id = context.args[0]
+    target_user_id = int(context.args[0])
     message_text = " ".join(context.args[1:])
 
     try:
@@ -156,13 +166,45 @@ async def admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(
-            "Message sent ✅"
+            f"Message sent to {target_user_id} ✅"
         )
 
     except Exception as e:
 
+        print("ADMIN REPLY ERROR:", e)
+
         await update.message.reply_text(
-            f"Failed ❌\n{e}"
+            f"Reply failed ❌\n\n{e}"
+        )
+
+# ---------------- REPLY BUTTON HANDLER ---------------- #
+
+async def reply_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    query = update.callback_query
+    await query.answer()
+
+    admin_id = str(query.from_user.id)
+
+    if admin_id != str(ADMIN_CHAT_ID):
+
+        await query.message.reply_text(
+            "You are not authorized to use this button."
+        )
+
+        return
+
+    data = query.data
+
+    if data.startswith("reply_to:"):
+
+        target_user_id = int(data.split(":")[1])
+
+        admin_reply_targets[admin_id] = target_user_id
+
+        await query.message.reply_text(
+            f"Reply mode ON ✅\n\n"
+            f"Type your next message and I’ll send it to user {target_user_id}."
         )
 
 # ---------------- GROUP WELCOME ---------------- #
@@ -184,6 +226,34 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     message_lower = user_message.lower()
     user_id = update.message.from_user.id
+    sender_id = str(update.message.from_user.id)
+
+    # -------- ADMIN REPLY MODE -------- #
+
+    if sender_id == str(ADMIN_CHAT_ID) and sender_id in admin_reply_targets:
+
+        target_user_id = admin_reply_targets.pop(sender_id)
+
+        try:
+
+            await context.bot.send_message(
+                chat_id=target_user_id,
+                text=user_message
+            )
+
+            await update.message.reply_text(
+                f"Reply sent to {target_user_id} ✅"
+            )
+
+        except Exception as e:
+
+            print("ADMIN BUTTON REPLY ERROR:", e)
+
+            await update.message.reply_text(
+                f"Reply failed ❌\n\n{e}"
+            )
+
+        return
 
     # -------- AGE VERIFICATION -------- #
 
@@ -285,6 +355,15 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 username_text = "No username"
 
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "💬 Reply to User",
+                        callback_data=f"reply_to:{user_id}"
+                    )
+                ]
+            ])
+
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
 
@@ -294,7 +373,9 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"Username: {username_text}\n"
                     f"User ID: {user_id}\n\n"
                     f"Message:\n{user_message}"
-                )
+                ),
+
+                reply_markup=keyboard
             )
 
         except Exception as e:
@@ -353,6 +434,10 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("resetme", resetme))
 app.add_handler(CommandHandler("testalert", testalert))
 app.add_handler(CommandHandler("reply", admin_reply))
+
+app.add_handler(
+    CallbackQueryHandler(reply_button)
+)
 
 app.add_handler(
     MessageHandler(
