@@ -295,7 +295,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await update.message.reply_text(
                 "What's on your mind hun? 😘\n\n"
-                "Or I can help you with:\n"
+                "Or I can help you with:\n\n"
                 "• Menu\n"
                 "• Special Bundles\n"
                 "• Premium Chat Service with Kc 🦋\n"
