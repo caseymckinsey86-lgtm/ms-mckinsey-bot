@@ -123,6 +123,48 @@ async def testalert(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Alert failed ❌ Error: {e}"
         )
 
+# ---------------- ADMIN REPLY ---------------- #
+
+async def admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    admin_id = str(update.message.from_user.id)
+
+    if admin_id != str(ADMIN_CHAT_ID):
+
+        await update.message.reply_text(
+            "You are not authorized to use this command."
+        )
+
+        return
+
+    if len(context.args) < 2:
+
+        await update.message.reply_text(
+            "Use:\n\n/reply USER_ID your message"
+        )
+
+        return
+
+    target_user_id = context.args[0]
+    message_text = " ".join(context.args[1:])
+
+    try:
+
+        await context.bot.send_message(
+            chat_id=target_user_id,
+            text=message_text
+        )
+
+        await update.message.reply_text(
+            "Message sent ✅"
+        )
+
+    except Exception as e:
+
+        await update.message.reply_text(
+            f"Failed ❌\n{e}"
+        )
+
 # ---------------- GROUP WELCOME ---------------- #
 
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -310,6 +352,7 @@ app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("resetme", resetme))
 app.add_handler(CommandHandler("testalert", testalert))
+app.add_handler(CommandHandler("reply", admin_reply))
 
 app.add_handler(
     MessageHandler(
