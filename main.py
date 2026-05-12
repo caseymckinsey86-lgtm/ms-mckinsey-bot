@@ -247,7 +247,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=ADMIN_CHAT_ID,
 
                 text=(
-                    f"🔥 Potential Buyer Alert\n\n"
+                    f"🔥 SONNY TEST ALERT\n\n"
                     f"User: {update.message.from_user.first_name}\n"
                     f"Username: {username_text}\n"
                     f"User ID: {user_id}\n\n"
