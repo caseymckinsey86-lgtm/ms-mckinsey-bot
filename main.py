@@ -214,10 +214,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- MAIN REPLY ---------------- #
 
 async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
-    message_lower = user_message.lower()
     user_id = update.message.from_user.id
     sender_id = str(update.message.from_user.id)
+
+    user_message = update.message.text or update.message.caption or ""
+    message_lower = user_message.lower()
 
     # -------- ADMIN REPLY MODE -------- #
 
@@ -225,10 +226,25 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user_id = admin_reply_targets.pop(sender_id)
 
         try:
-            await context.bot.send_message(
-                chat_id=target_user_id,
-                text=user_message
-            )
+            if update.message.text:
+                await context.bot.send_message(
+                    chat_id=target_user_id,
+                    text=update.message.text
+                )
+
+            elif update.message.photo:
+                await context.bot.send_photo(
+                    chat_id=target_user_id,
+                    photo=update.message.photo[-1].file_id,
+                    caption=update.message.caption
+                )
+
+            elif update.message.video:
+                await context.bot.send_video(
+                    chat_id=target_user_id,
+                    video=update.message.video.file_id,
+                    caption=update.message.caption
+                )
 
             inc_stat("admin_replies")
             await update.message.reply_text("Reply sent ✅")
@@ -254,17 +270,46 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
             ])
 
-            await context.bot.send_message(
-                chat_id=ADMIN_CHAT_ID,
-                text=(
-                    f"📩 User Message During Takeover\n\n"
-                    f"User: {update.message.from_user.first_name}\n"
-                    f"Username: {username_text}\n"
-                    f"User ID: {user_id}\n\n"
-                    f"Message:\n{user_message}"
-                ),
-                reply_markup=keyboard
-            )
+            if update.message.text:
+                await context.bot.send_message(
+                    chat_id=ADMIN_CHAT_ID,
+                    text=(
+                        f"📩 User Message During Takeover\n\n"
+                        f"User: {update.message.from_user.first_name}\n"
+                        f"Username: {username_text}\n"
+                        f"User ID: {user_id}\n\n"
+                        f"Message:\n{update.message.text}"
+                    ),
+                    reply_markup=keyboard
+                )
+
+            elif update.message.photo:
+                await context.bot.send_photo(
+                    chat_id=ADMIN_CHAT_ID,
+                    photo=update.message.photo[-1].file_id,
+                    caption=(
+                        f"📸 Photo During Takeover\n\n"
+                        f"User: {update.message.from_user.first_name}\n"
+                        f"Username: {username_text}\n"
+                        f"User ID: {user_id}\n\n"
+                        f"Caption: {update.message.caption or 'No caption'}"
+                    ),
+                    reply_markup=keyboard
+                )
+
+            elif update.message.video:
+                await context.bot.send_video(
+                    chat_id=ADMIN_CHAT_ID,
+                    video=update.message.video.file_id,
+                    caption=(
+                        f"🎥 Video During Takeover\n\n"
+                        f"User: {update.message.from_user.first_name}\n"
+                        f"Username: {username_text}\n"
+                        f"User ID: {user_id}\n\n"
+                        f"Caption: {update.message.caption or 'No caption'}"
+                    ),
+                    reply_markup=keyboard
+                )
 
         except Exception as e:
             print("TAKEOVER FORWARD ERROR:", e)
@@ -345,21 +390,17 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "order",
         "purchase",
         "custom",
-
         "bundle",
         "bundles",
         "special bundle",
         "special bundles",
-
         "premium chat",
         "premium chat service",
         "chat service",
-
         "content preview",
         "content previews",
         "preview",
         "previews",
-
         "vip",
         "vip access"
     ]
@@ -462,7 +503,7 @@ app.add_handler(CallbackQueryHandler(button_handler))
 
 app.add_handler(
     MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
+        (filters.TEXT | filters.PHOTO | filters.VIDEO) & ~filters.COMMAND,
         reply
     )
 )
