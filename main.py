@@ -388,7 +388,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if any(word in message_lower for word in handoff_words):
 
         await update.message.reply_text(
-            "Let me see if Kc 🦋 is available to help you with that directly hun 💋"
+            "Let me see if Kc 🦋 is available to help you with that directly hun 💋",
         )
 
         try:
